@@ -2,9 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
 
-	"github.com/DebuggerAndrzej/puf/backend"
+	"github.com/DebuggerAndrzej/puf/ui"
 )
 
 func main() {
@@ -12,5 +11,5 @@ func main() {
 	searchedRegex := flag.String("r", ".*", "Searched regex in files")
 	flag.Parse()
 
-	fmt.Println(backend.GetAllFilesMatchingRegexInArchive(*archivePath, *searchedRegex))
+	ui.InitTui(*archivePath, *searchedRegex)
 }
