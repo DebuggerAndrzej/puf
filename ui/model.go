@@ -1,7 +1,8 @@
 package ui
 
 type model struct {
-	choices  []string
-	cursor   int
-	selected map[int]struct{}
+	choices     []string
+	archivePath string
+	cursor      int
+	selected    map[int]struct{}
 }

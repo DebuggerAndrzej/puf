@@ -18,7 +18,8 @@ func InitTui(archivePath, searchedRegex string) {
 
 func initialModel(archivePath, searchedRegex string) model {
 	return model{
-		choices:  backend.GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex),
-		selected: make(map[int]struct{}),
+		choices:     backend.GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex),
+		selected:    make(map[int]struct{}),
+		archivePath: archivePath,
 	}
 }

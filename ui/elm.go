@@ -2,8 +2,10 @@ package ui
 
 import (
 	"fmt"
+
 	"golang.org/x/exp/maps"
 
+	"github.com/DebuggerAndrzej/puf/backend"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -38,7 +40,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			for _, key := range keys {
 				toUnzip = append(toUnzip, m.choices[key])
 			}
-			fmt.Println(toUnzip)
+			backend.UnzipRequestedFiles(m.archivePath, toUnzip)
 			return m, tea.Quit
 		}
 	}
