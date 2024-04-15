@@ -3,3 +3,25 @@
 </div>
 <h2 align="center">PUF - Partially Unzip File</h2>
 A simple go tui tool to help you unzip only files that are useful. Works well with compressed files within compressed files.
+
+# Installation
+```
+ go install github.com/DebuggerAndrzej/puf@latest
+```
+Requirements:
+- go 1.22 or newer
+
+> [!TIP]
+> default installation path for go is ~/go/bin so in order to have tli command available this path has to be added to shell user paths.
+
+# Flags
+
+- `f` - path to archive you want to extract from
+- `d` - path to destination folder (optional)
+> [!NOTE]
+> all paths can be relative or absolute
+- `r` - regex choosing which files to show (optional)
+> [!TIP]
+> if you want to search only for files with .go extension you can use -r go\\$ for fish and -r go$ for bash.
+
+
