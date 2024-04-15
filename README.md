@@ -22,6 +22,12 @@ Requirements:
 > all paths can be relative or absolute
 - `r` - regex choosing which files to show (optional)
 > [!TIP]
-> if you want to search only for files with .go extension you can use -r go\\$ for fish and -r go$ for bash.
+> if you want to search only for files with .go extension you can use `-r go\$` for fish and `-r go$` for bash.
 
+# Shortcuts
 
+- `q` or `ctrl+c` - quit
+- `up` or `k` -  up
+- `down` or `j` -  down
+- `tab` or `space` - select/deselect
+- `a` - select/deselect all
