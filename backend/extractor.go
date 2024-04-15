@@ -3,6 +3,7 @@ package backend
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ func UnzipRequestedFiles(archivePath, destination string, filenames []string) {
 	}
 
 	unzipFilesInZip(zipFile.File, filenames, destination)
+	fmt.Println("\nUnzipped requested files")
 }
 
 func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles []string) []string {
