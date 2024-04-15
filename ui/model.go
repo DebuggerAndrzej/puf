@@ -5,4 +5,5 @@ type model struct {
 	archivePath string
 	cursor      int
 	selected    map[int]struct{}
+	destination string
 }

@@ -34,13 +34,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				m.selected[m.cursor] = struct{}{}
 			}
+		case "a":
+			if len(m.selected) == len(m.choices) {
+				for i := range len(m.choices) {
+					delete(m.selected, i)
+				}
+			} else {
+				for i := range len(m.choices) {
+					m.selected[i] = struct{}{}
+				}
+			}
 		case "enter":
 			keys := maps.Keys(m.selected)
 			var toUnzip []string
 			for _, key := range keys {
 				toUnzip = append(toUnzip, m.choices[key])
 			}
-			backend.UnzipRequestedFiles(m.archivePath, toUnzip)
+			backend.UnzipRequestedFiles(m.archivePath, m.destination, toUnzip)
 			return m, tea.Quit
 		}
 	}
@@ -48,6 +58,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+	if len(m.choices) == 0 {
+		return "No files found, press q to quit."
+	}
 	s := "What should we unpack?\n\n"
 	for i, choice := range m.choices {
 		cursor := " "
