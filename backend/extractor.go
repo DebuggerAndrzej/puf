@@ -15,12 +15,12 @@ import (
 func GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex string) []string {
 	zipFile, err := zip.OpenReader(archivePath)
 	if err != nil {
-		panic("Unable to open initial zip. Is it path correct?")
+		printMessageAndExit("Unable to open initial zip. Is it's path correct?")
 	}
 
 	matcher, err := regexp.Compile(searchedRegex)
 	if err != nil {
-		panic("Regex couldn't compile. Please make sure it's correct regex expression")
+		printMessageAndExit("Regex couldn't compile. Please make sure it's correct regex expression")
 	}
 
 	var matchingFiles []string
@@ -30,7 +30,7 @@ func GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex string) []stri
 func UnzipRequestedFiles(archivePath, destination string, filenames []string) {
 	zipFile, err := zip.OpenReader(archivePath)
 	if err != nil {
-		panic("Unable to open initial zip. Is it path correct?")
+		printMessageAndExit("Unable to open initial zip. Is it's path correct?")
 	}
 
 	unzipFilesInZip(zipFile.File, filenames, destination)
@@ -42,7 +42,7 @@ func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles [
 		if strings.HasSuffix(file.Name, ".zip") {
 			innerZip, err := file.Open()
 			if err != nil {
-				panic("bad inner zip")
+				printMessageAndExit("bad inner zip")
 			}
 			matchingFiles = getMatchingFilesFromZip(innerZip, matcher, matchingFiles)
 		}
@@ -59,7 +59,7 @@ func getMatchingFilesFromZip(openedZip io.ReadCloser, matcher *regexp.Regexp, ma
 	defer openedZip.Close()
 	buffer, err := io.ReadAll(openedZip)
 	if err != nil {
-		panic("Couldn't read file from zip")
+		printMessageAndExit("Couldn't read file from zip")
 	}
 
 	reader := bytes.NewReader(buffer)
@@ -90,7 +90,7 @@ func getZipFile(openedZip io.ReadCloser, filenames []string, destination string)
 	defer openedZip.Close()
 	buffer, err := io.ReadAll(openedZip)
 	if err != nil {
-		panic("Couldn't read file from zip")
+		printMessageAndExit("Couldn't read file from zip")
 	}
 
 	reader := bytes.NewReader(buffer)
@@ -107,22 +107,27 @@ func unzipFile(file zip.File, destination string) {
 	} else {
 		filePath = filepath.Join(destination, filepath.Base(file.Name))
 		if err := os.MkdirAll(filepath.Dir(filePath), os.ModePerm); err != nil {
-			panic(err)
+			printMessageAndExit("Couldn't create requested destination dir")
 		}
 		filePath = filepath.Join(destination, filepath.Base(file.Name))
 	}
 
 	dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
 	if err != nil {
-		panic(err)
+		printMessageAndExit("Couldn't open file to save")
 	}
 	fileInArchive, err := file.Open()
 	if err != nil {
-		panic(err)
+		printMessageAndExit("Couldn't open archive file requested to save")
 	}
 	if _, err := io.Copy(dstFile, fileInArchive); err != nil {
-		panic(err)
+		printMessageAndExit("Couldn't copy archive data to file")
 	}
 	dstFile.Close()
 	fileInArchive.Close()
+}
+
+func printMessageAndExit(msg string) {
+	fmt.Println(msg)
+	os.Exit(1)
 }
