@@ -26,10 +26,15 @@ Requirements:
 
 # Shortcuts
 
-- `q` or `ctrl+c` - quit
+**Selection:**
+- `tab` or `space` - (de)select
+- `a` - (de)select all
+
+**Basic movements:**
 - `up` or `k` -  up
 - `down` or `j` -  down
-- `tab` or `space` - select/deselect
-- `a` - select/deselect all
 - `left` or `h` - left (page)
 - `right` or `l` - right (page)
+
+**Quit:**
+- `q` or `ctrl+c` - quit
