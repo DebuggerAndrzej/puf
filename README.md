@@ -31,3 +31,5 @@ Requirements:
 - `down` or `j` -  down
 - `tab` or `space` - select/deselect
 - `a` - select/deselect all
+- `left` or `h` - left (page)
+- `right` or `l` - right (page)
