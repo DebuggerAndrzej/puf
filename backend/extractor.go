@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+var recoverableErrorsEncountered []string
+
 func GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex string) []string {
 	zipFile, err := zip.OpenReader(archivePath)
 	if err != nil {
@@ -34,6 +36,9 @@ func UnzipRequestedFiles(archivePath, destination string, filenames []string) {
 	}
 
 	unzipFilesInZip(zipFile.File, filenames, destination)
+	if len(recoverableErrorsEncountered) > 0 {
+		fmt.Printf("\u001b[33m\nWARNING: %s\u001b[0m\n", strings.Join(recoverableErrorsEncountered, "\nWARNING: "))
+	}
 	fmt.Println("\nUnzipped requested files")
 }
 
@@ -42,9 +47,13 @@ func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles [
 		if strings.HasSuffix(file.Name, ".zip") {
 			innerZip, err := file.Open()
 			if err != nil {
-				printMessageAndExit("bad inner zip")
+				recoverableErrorsEncountered = append(
+					recoverableErrorsEncountered,
+					fmt.Sprintf("Ommiting file %s. File couldn't be opened", file.Name),
+				)
+				continue
 			}
-			matchingFiles = getMatchingFilesFromZip(innerZip, matcher, matchingFiles)
+			matchingFiles = getMatchingFilesFromZip(innerZip, matcher, matchingFiles, file.Name)
 		}
 		if !file.FileInfo().IsDir() {
 			if matcher.MatchString(file.Name) && !slices.Contains(matchingFiles, filepath.Base(file.Name)) {
@@ -55,16 +64,31 @@ func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles [
 	return matchingFiles
 }
 
-func getMatchingFilesFromZip(openedZip io.ReadCloser, matcher *regexp.Regexp, matchingFiles []string) []string {
+func getMatchingFilesFromZip(
+	openedZip io.ReadCloser,
+	matcher *regexp.Regexp,
+	matchingFiles []string,
+	filename string,
+) []string {
 	defer openedZip.Close()
 	buffer, err := io.ReadAll(openedZip)
 	if err != nil {
-		printMessageAndExit("Couldn't read file from zip")
+		recoverableErrorsEncountered = append(
+			recoverableErrorsEncountered,
+			fmt.Sprintf("Ommiting file %s. File couldn't be read", filename),
+		)
+		return matchingFiles
 	}
 
 	reader := bytes.NewReader(buffer)
-	sizeToRead, _ := io.Copy(io.Discard, reader)
-	zipFile, _ := zip.NewReader(reader, sizeToRead)
+	zipFile, err := zip.NewReader(reader, int64(len(buffer)))
+	if err != nil {
+		recoverableErrorsEncountered = append(
+			recoverableErrorsEncountered,
+			fmt.Sprintf("Ommiting file %s. File couldn't be reopened from buffer", filename),
+		)
+		return matchingFiles
+	}
 
 	return handleFilesInZip(zipFile.File, matcher, matchingFiles)
 }
@@ -74,7 +98,7 @@ func unzipFilesInZip(files []*zip.File, filenames []string, destination string) 
 		if strings.HasSuffix(file.Name, ".zip") {
 			innerZip, err := file.Open()
 			if err != nil {
-				panic("bad inner zip")
+				continue
 			}
 			getZipFile(innerZip, filenames, destination)
 		}
@@ -90,12 +114,15 @@ func getZipFile(openedZip io.ReadCloser, filenames []string, destination string)
 	defer openedZip.Close()
 	buffer, err := io.ReadAll(openedZip)
 	if err != nil {
-		printMessageAndExit("Couldn't read file from zip")
+		return
 	}
 
 	reader := bytes.NewReader(buffer)
-	sizeToRead, _ := io.Copy(io.Discard, reader)
-	zipFile, _ := zip.NewReader(reader, sizeToRead)
+	zipFile, err := zip.NewReader(reader, int64(len(buffer)))
+
+	if err != nil {
+		return
+	}
 
 	unzipFilesInZip(zipFile.File, filenames, destination)
 }
@@ -128,6 +155,9 @@ func unzipFile(file zip.File, destination string) {
 }
 
 func printMessageAndExit(msg string) {
-	fmt.Println(msg)
+	if len(recoverableErrorsEncountered) > 0 {
+		fmt.Printf("\u001b[33m\nWARNING: %s\u001b[0m\n", strings.Join(recoverableErrorsEncountered, "\nWARNING: "))
+	}
+	fmt.Printf("\u001b[31m%s\u001b[0m\n", msg)
 	os.Exit(1)
 }
