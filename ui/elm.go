@@ -62,7 +62,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			keys := maps.Keys(m.selected)
 			var toUnzip []string
 			for _, key := range keys {
-				toUnzip = append(toUnzip, m.choices[key])
+				toUnzip = append(toUnzip, m.items[m.choices[key]])
 			}
 			if len(toUnzip) > 0 {
 				backend.UnzipRequestedFiles(m.archivePath, m.destination, toUnzip)

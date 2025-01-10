@@ -3,6 +3,7 @@ package backend
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,7 +15,7 @@ import (
 
 var recoverableErrorsEncountered []string
 
-func GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex string) []string {
+func GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex string) map[string]string {
 	zipFile, err := zip.OpenReader(archivePath)
 	if err != nil {
 		printMessageAndExit("Unable to open initial zip. Is it's path correct?")
@@ -25,8 +26,9 @@ func GetAllFilesMatchingRegexInArchive(archivePath, searchedRegex string) []stri
 		printMessageAndExit("Regex couldn't compile. Please make sure it's correct regex expression")
 	}
 
-	var matchingFiles []string
-	return handleFilesInZip(zipFile.File, matcher, matchingFiles)
+	matchingFiles := make(map[string]string)
+	handleFilesInZip(zipFile.File, matcher, matchingFiles, "")
+	return matchingFiles
 }
 
 func UnzipRequestedFiles(archivePath, destination string, filenames []string) {
@@ -35,14 +37,22 @@ func UnzipRequestedFiles(archivePath, destination string, filenames []string) {
 		printMessageAndExit("Unable to open initial zip. Is it's path correct?")
 	}
 
-	unzipFilesInZip(zipFile.File, filenames, destination)
+	unzipFilesInZip(zipFile.File, filenames, destination, "")
 	if len(recoverableErrorsEncountered) > 0 {
 		fmt.Printf("\u001b[33m\nWARNING: %s\u001b[0m\n", strings.Join(recoverableErrorsEncountered, "\nWARNING: "))
 	}
 	fmt.Println("\nUnzipped requested files")
 }
 
-func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles []string) []string {
+func updateMatchingFiles(matchingFiles map[string]string, key, filename, dirPrefix string) {
+	if dirPrefix != "" {
+		matchingFiles[key] = filepath.Join(dirPrefix, filename)
+	} else {
+		matchingFiles[key] = filename
+	}
+}
+
+func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles map[string]string, dirPrefix string) {
 	for _, file := range files {
 		if strings.HasSuffix(file.Name, ".zip") {
 			innerZip, err := file.Open()
@@ -53,23 +63,33 @@ func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles [
 				)
 				continue
 			}
-			matchingFiles = getMatchingFilesFromZip(innerZip, matcher, matchingFiles, file.Name)
+			getMatchingFilesFromZip(innerZip, matcher, matchingFiles, file.Name)
 		}
 		if !file.FileInfo().IsDir() {
-			if matcher.MatchString(file.Name) && !slices.Contains(matchingFiles, filepath.Base(file.Name)) {
-				matchingFiles = append(matchingFiles, filepath.Base(file.Name))
+			if matcher.MatchString(file.Name) {
+				if _, contains := matchingFiles[filepath.Base(file.Name)]; contains {
+					for i := 1; ; i++ {
+						newFilename := fmt.Sprintf("%s(%d)", filepath.Base(file.Name), i)
+						if _, contains := matchingFiles[newFilename]; !contains {
+							updateMatchingFiles(matchingFiles, newFilename, file.Name, dirPrefix)
+							break
+						}
+					}
+				} else {
+					updateMatchingFiles(matchingFiles, filepath.Base(file.Name), file.Name, dirPrefix)
+
+				}
 			}
 		}
 	}
-	return matchingFiles
 }
 
 func getMatchingFilesFromZip(
 	openedZip io.ReadCloser,
 	matcher *regexp.Regexp,
-	matchingFiles []string,
+	matchingFiles map[string]string,
 	filename string,
-) []string {
+) {
 	defer openedZip.Close()
 	buffer, err := io.ReadAll(openedZip)
 	if err != nil {
@@ -77,7 +97,7 @@ func getMatchingFilesFromZip(
 			recoverableErrorsEncountered,
 			fmt.Sprintf("Ommiting file %s. File couldn't be read", filename),
 		)
-		return matchingFiles
+		return
 	}
 
 	reader := bytes.NewReader(buffer)
@@ -87,30 +107,36 @@ func getMatchingFilesFromZip(
 			recoverableErrorsEncountered,
 			fmt.Sprintf("Ommiting file %s. File couldn't be reopened from buffer", filename),
 		)
-		return matchingFiles
+		return
 	}
 
-	return handleFilesInZip(zipFile.File, matcher, matchingFiles)
+	handleFilesInZip(zipFile.File, matcher, matchingFiles, filename)
 }
 
-func unzipFilesInZip(files []*zip.File, filenames []string, destination string) {
+func unzipFilesInZip(files []*zip.File, filenames []string, destination, dirPrefix string) {
 	for _, file := range files {
 		if strings.HasSuffix(file.Name, ".zip") {
 			innerZip, err := file.Open()
 			if err != nil {
 				continue
 			}
-			getZipFile(innerZip, filenames, destination)
+			getZipFile(innerZip, filenames, destination, file.Name)
 		}
 		if !file.FileInfo().IsDir() {
-			if slices.Contains(filenames, filepath.Base(file.Name)) {
-				unzipFile(*file, destination)
+			if dirPrefix != "" {
+				if slices.Contains(filenames, filepath.Join(dirPrefix, file.Name)) {
+					unzipFile(*file, destination)
+				}
+			} else {
+				if slices.Contains(filenames, file.Name) {
+					unzipFile(*file, destination)
+				}
 			}
 		}
 	}
 }
 
-func getZipFile(openedZip io.ReadCloser, filenames []string, destination string) {
+func getZipFile(openedZip io.ReadCloser, filenames []string, destination, fileName string) {
 	defer openedZip.Close()
 	buffer, err := io.ReadAll(openedZip)
 	if err != nil {
@@ -124,7 +150,7 @@ func getZipFile(openedZip io.ReadCloser, filenames []string, destination string)
 		return
 	}
 
-	unzipFilesInZip(zipFile.File, filenames, destination)
+	unzipFilesInZip(zipFile.File, filenames, destination, fileName)
 }
 
 func unzipFile(file zip.File, destination string) {
@@ -139,9 +165,25 @@ func unzipFile(file zip.File, destination string) {
 		filePath = filepath.Join(destination, filepath.Base(file.Name))
 	}
 
-	dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-	if err != nil {
-		printMessageAndExit("Couldn't open file to save")
+	var dstFile *os.File
+	if _, err := os.Stat(filePath); err == nil {
+		for i := 1; ; i++ {
+			newFilePath := fmt.Sprintf(
+				"%s(%d)%s",
+				strings.TrimSuffix(filePath, filepath.Ext(filePath)),
+				i,
+				filepath.Ext(filePath),
+			)
+			if _, err := os.Stat(newFilePath); errors.Is(err, os.ErrNotExist) {
+				dstFile, err = os.OpenFile(newFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+				break
+			}
+		}
+	} else {
+		dstFile, err = os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			printMessageAndExit("Couldn't open file to save")
+		}
 	}
 	fileInArchive, err := file.Open()
 	if err != nil {
