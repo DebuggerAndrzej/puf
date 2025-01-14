@@ -63,7 +63,7 @@ func handleFilesInZip(files []*zip.File, matcher *regexp.Regexp, matchingFiles m
 				)
 				continue
 			}
-			getMatchingFilesFromZip(innerZip, matcher, matchingFiles, file.Name)
+			getMatchingFilesFromZip(innerZip, matcher, matchingFiles, filepath.Join(dirPrefix, file.Name))
 		}
 		if !file.FileInfo().IsDir() {
 			if matcher.MatchString(file.Name) {
